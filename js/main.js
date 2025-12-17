@@ -1,4 +1,3 @@
-// script.js
 document.addEventListener('DOMContentLoaded', function() {
     // Элементы интерфейса
     const buttonAuth = document.querySelector('.button-auth');
@@ -6,43 +5,182 @@ document.addEventListener('DOMContentLoaded', function() {
     const buttonCart = document.querySelector('.button-cart');
     const userName = document.querySelector('.user-name');
     const modalAuth = document.querySelector('.modal-auth');
+    const modalCart = document.querySelector('.modal-cart');
     const closeAuth = document.querySelector('.close-auth');
+    const closeCart = modalCart ? modalCart.querySelector('.close') : null;
     const logInForm = document.getElementById('logInForm');
     const loginInput = document.getElementById('login');
     const passwordInput = document.getElementById('password');
     
-    // Проверяем, существует ли кнопка выхода (может быть не на всех страницах)
-    if (!buttonOut) {
-        console.warn('Кнопка выхода не найдена');
+    // Переменные для управления анимациями
+    let shakeTimeout;
+    
+    // Функция для управления скроллом страницы
+    function toggleBodyScroll(disable) {
+        if (disable) {
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+            document.body.style.position = 'fixed';
+            document.body.style.top = `-${scrollY}px`;
+            document.body.style.width = '100%';
+            document.body.style.overflow = 'hidden';
+            document.body.dataset.scrollY = scrollY;
+            document.body.classList.add('modal-open');
+        } else {
+            const scrollY = parseInt(document.body.dataset.scrollY || '0', 10);
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.width = '';
+            document.body.style.overflow = '';
+            document.body.classList.remove('modal-open');
+            window.scrollTo(0, scrollY);
+            delete document.body.dataset.scrollY;
+        }
     }
     
-    // Проверяем, существует ли кнопка корзины
-    if (!buttonCart) {
-        console.warn('Кнопка корзины не найдена');
+    // Функция для очистки стилей ошибок
+    function clearInputStyles() {
+        if (loginInput) {
+            loginInput.classList.remove('error', 'error-shake');
+            loginInput.style.borderColor = '';
+            loginInput.style.boxShadow = '';
+        }
+        
+        if (passwordInput) {
+            passwordInput.classList.remove('error', 'error-shake');
+            passwordInput.style.borderColor = '';
+            passwordInput.style.boxShadow = '';
+        }
+        
+        // Очищаем все сообщения об ошибках
+        const existingErrors = document.querySelectorAll('.login-error');
+        existingErrors.forEach(error => error.remove());
+        
+        // Очищаем таймаут тряски
+        if (shakeTimeout) {
+            clearTimeout(shakeTimeout);
+        }
     }
     
-    // Проверяем авторизацию при загрузке страницы
-    const currentUser = localStorage.getItem('userName');
+    // Функция для добавления эффекта тряски
+    function addShakeEffect(input) {
+        input.classList.add('error-shake');
+        
+        // Убираем класс тряски после завершения анимации
+        shakeTimeout = setTimeout(() => {
+            input.classList.remove('error-shake');
+        }, 600);
+    }
     
-    // Функция для обновления интерфейса в зависимости от статуса авторизации
+    // Функция для показа ошибки для конкретного поля
+    function showError(input, message) {
+        // Добавляем класс error для красной рамки
+        input.classList.add('error');
+        
+        // Добавляем эффект тряски
+        addShakeEffect(input);
+        
+        // Удаляем предыдущее сообщение об ошибке для этого поля, если есть
+        const existingError = input.parentNode.querySelector('.login-error');
+        if (existingError) {
+            existingError.remove();
+        }
+        
+        // Создаем новое сообщение об ошибке
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'login-error';
+        errorDiv.innerHTML = `<span class="error-icon">!</span> ${message}`;
+        
+        // Вставляем сообщение после input
+        input.parentNode.appendChild(errorDiv);
+    }
+    
+    // Функция для проверки всех полей и показа ошибок
+    function validateForm(login, password) {
+        let hasError = false;
+        
+        // Очищаем предыдущие стили ошибок
+        clearInputStyles();
+        
+        // Проверяем логин
+        if (!login) {
+            showError(loginInput, 'Будь ласка, введіть логін');
+            hasError = true;
+        }
+        
+        // Проверяем пароль
+        if (!password) {
+            showError(passwordInput, 'Будь ласка, введіть пароль');
+            hasError = true;
+        }
+        
+        // Если есть ошибки, фокусируемся на первом поле с ошибкой
+        if (hasError) {
+            const firstErrorInput = document.querySelector('input.error');
+            if (firstErrorInput) {
+                firstErrorInput.focus();
+            }
+        }
+        
+        return hasError;
+    }
+    
+    // Функция для показа уведомления
+    function showNotification(message, type = 'success') {
+        // Удаляем предыдущие уведомления
+        const existingNotifications = document.querySelectorAll('.auth-notification, .logout-notification, .cart-notification');
+        existingNotifications.forEach(notification => notification.remove());
+        
+        const notification = document.createElement('div');
+        notification.className = type === 'success' ? 'auth-notification' : 
+                                type === 'logout' ? 'logout-notification' : 
+                                'cart-notification';
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Добавляем иконку в зависимости от типа
+        const icon = document.createElement('span');
+        icon.className = 'notification-icon';
+        
+        if (type === 'success') {
+            icon.textContent = '✓';
+        } else if (type === 'logout') {
+            icon.textContent = '←';
+        } else {
+            icon.textContent = '🛒';
+        }
+        
+        notification.prepend(icon);
+        
+        // Автоматическое удаление уведомления через 3 секунды
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.remove();
+            }
+        }, 3000);
+    }
+    
+    // Функция для обновления интерфейса авторизации
     function updateAuthUI() {
         const userName = localStorage.getItem('userName');
+        const userNameElement = document.querySelector('.user-name');
+        const buttonAuth = document.querySelector('.button-auth');
+        const buttonOut = document.querySelector('.button-out');
         
         if (userName) {
             // Пользователь авторизован
             if (buttonAuth) buttonAuth.style.display = 'none';
             if (buttonOut) buttonOut.style.display = 'flex';
-            if (document.querySelector('.user-name')) {
-                document.querySelector('.user-name').textContent = userName;
-                document.querySelector('.user-name').style.display = 'block';
+            if (userNameElement) {
+                userNameElement.textContent = `Привіт, ${userName}!`;
+                userNameElement.style.display = 'block';
             }
         } else {
             // Пользователь не авторизован
             if (buttonAuth) buttonAuth.style.display = 'flex';
             if (buttonOut) buttonOut.style.display = 'none';
-            if (document.querySelector('.user-name')) {
-                document.querySelector('.user-name').style.display = 'none';
-                document.querySelector('.user-name').textContent = '';
+            if (userNameElement) {
+                userNameElement.style.display = 'none';
+                userNameElement.textContent = '';
             }
         }
     }
@@ -50,17 +188,30 @@ document.addEventListener('DOMContentLoaded', function() {
     // Инициализация интерфейса при загрузке
     updateAuthUI();
     
+    // ===== ОБРАБОТКА МОДАЛЬНОГО ОКНА АВТОРИЗАЦИИ =====
+    
     // Открытие модального окна авторизации
     buttonAuth.addEventListener('click', function(e) {
         e.preventDefault();
         modalAuth.classList.add('is-open');
-        loginInput.focus();
+        
+        // Отключаем скролл страницы
+        toggleBodyScroll(true);
+        
+        // Очищаем стили ошибок и поля при каждом новом открытии
+        clearInputStyles();
+        if (loginInput) loginInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+        
+        // Фокусируемся на поле логина
+        if (loginInput) loginInput.focus();
     });
     
     // Закрытие модального окна авторизации
     closeAuth.addEventListener('click', function() {
         modalAuth.classList.remove('is-open');
         clearInputStyles();
+        toggleBodyScroll(false);
     });
     
     // Закрытие модального окна при клике вне его
@@ -68,43 +219,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === modalAuth) {
             modalAuth.classList.remove('is-open');
             clearInputStyles();
+            toggleBodyScroll(false);
         }
     });
-    
-    // Функция для очистки стилей ошибок
-    function clearInputStyles() {
-        loginInput.style.borderColor = '';
-        loginInput.style.boxShadow = '';
-        // Очищаем сообщение об ошибке, если оно есть
-        const existingError = document.querySelector('.login-error');
-        if (existingError) {
-            existingError.remove();
-        }
-    }
-    
-    // Функция для показа ошибки
-    function showError(input, message) {
-        clearInputStyles();
-        
-        // Устанавливаем красную рамку
-        input.style.borderColor = '#ff3333';
-        input.style.boxShadow = '0 0 5px rgba(255, 51, 51, 0.3)';
-        
-        // Создаем сообщение об ошибке
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'login-error';
-        errorDiv.style.color = '#ff3333';
-        errorDiv.style.fontSize = '14px';
-        errorDiv.style.marginTop = '5px';
-        errorDiv.style.marginLeft = '5px';
-        errorDiv.textContent = message;
-        
-        // Вставляем сообщение после input
-        input.parentNode.appendChild(errorDiv);
-        
-        // Фокусируемся на поле с ошибкой
-        input.focus();
-    }
     
     // Обработка формы авторизации
     logInForm.addEventListener('submit', function(e) {
@@ -113,22 +230,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const login = loginInput.value.trim();
         const password = passwordInput.value.trim();
         
-        // Очищаем предыдущие стили ошибок
-        clearInputStyles();
+        // Проверяем все поля
+        const hasError = validateForm(login, password);
         
-        // Проверяем, введен ли логин
-        if (!login) {
-            showError(loginInput, 'Будь ласка, введіть логін для авторизації');
+        // Если есть ошибки - прерываем
+        if (hasError) {
+            // Показываем общее сообщение об ошибке
+            showNotification('Будь ласка, заповніть всі поля', 'cart');
             return;
         }
         
-        // Проверяем, введен ли пароль (опционально, если требуется)
-        if (!password) {
-            showError(passwordInput, 'Будь ласка, введіть пароль');
-            return;
-        }
-        
-        // Сохраняем данные пользователя (в реальном приложении здесь был бы запрос к серверу)
+        // Сохраняем данные пользователя
         localStorage.setItem('userName', login);
         
         // Очищаем поля формы
@@ -138,153 +250,72 @@ document.addEventListener('DOMContentLoaded', function() {
         // Закрываем модальное окно
         modalAuth.classList.remove('is-open');
         
+        // Включаем скролл страницы
+        toggleBodyScroll(false);
+        
         // Обновляем интерфейс
         updateAuthUI();
         
-        // Показываем уведомление об успешной авторизации
-        showSuccessNotification(`Вітаємо, ${login}! Ви успішно авторизувалися.`);
+        // Показываем уведомление
+        showNotification(`Вітаємо, ${login}! Ви успішно авторизувалися.`, 'success');
     });
     
-    // Функция для показа уведомления об успешной авторизации
-    function showSuccessNotification(message) {
-        // Создаем элемент уведомления
-        const notification = document.createElement('div');
-        notification.className = 'auth-notification';
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 4px;
-            z-index: 1000;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: fadeInOut 3s ease-in-out;
-        `;
-        
-        // Добавляем стили для анимации
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes fadeInOut {
-                0% { opacity: 0; transform: translateY(-20px); }
-                15% { opacity: 1; transform: translateY(0); }
-                85% { opacity: 1; transform: translateY(0); }
-                100% { opacity: 0; transform: translateY(-20px); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        // Добавляем уведомление на страницу
-        document.body.appendChild(notification);
-        
-        // Удаляем уведомление через 3 секунды
-        setTimeout(() => {
-            notification.remove();
-            style.remove();
-        }, 3000);
+    // ===== ОБРАБОТКА МОДАЛЬНОГО ОКНА КОРЗИНЫ =====
+    
+    // Открытие корзины
+    if (buttonCart) {
+        buttonCart.addEventListener('click', function() {
+            modalCart.classList.add('is-open');
+            toggleBodyScroll(true);
+        });
     }
     
-    // Обработка выхода из системы
+    // Закрытие корзины
+    if (closeCart) {
+        closeCart.addEventListener('click', function() {
+            modalCart.classList.remove('is-open');
+            toggleBodyScroll(false);
+        });
+    }
+    
+    // Закрытие корзины при клике вне ее
+    if (modalCart) {
+        modalCart.addEventListener('click', function(e) {
+            if (e.target === modalCart) {
+                modalCart.classList.remove('is-open');
+                toggleBodyScroll(false);
+            }
+        });
+    }
+    
+    // ===== ОБРАБОТКА ВЫХОДА ИЗ СИСТЕМЫ =====
+    
     if (buttonOut) {
         buttonOut.addEventListener('click', function() {
-            // Удаляем данные пользователя из localStorage
+            // Удаляем данные пользователя
             localStorage.removeItem('userName');
             
             // Обновляем интерфейс
             updateAuthUI();
             
-            // Показываем уведомление о выходе
-            showLogoutNotification('Ви вийшли з системи');
+            // Показываем уведомление
+            showNotification('Ви вийшли з системи', 'logout');
         });
     }
     
-    // Функция для показа уведомления о выходе
-    function showLogoutNotification(message) {
-        const notification = document.createElement('div');
-        notification.className = 'logout-notification';
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #1890ff;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 4px;
-            z-index: 1000;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: fadeInOut 3s ease-in-out;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
-    }
+    // ===== ОБРАБОТКА КОРЗИНЫ =====
     
-    // Добавляем стили для ошибок в CSS
-    const style = document.createElement('style');
-    style.textContent = `
-        .login-error {
-            color: #ff3333;
-            font-size: 14px;
-            margin-top: 5px;
-            margin-left: 5px;
-            animation: fadeIn 0.3s ease-in-out;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        
-        /* Стили для выделения поля с ошибкой */
-        input.error {
-            border-color: #ff3333 !important;
-            box-shadow: 0 0 5px rgba(255, 51, 51, 0.3) !important;
-        }
-    `;
-    document.head.appendChild(style);
-    
-    // Добавляем функциональность для корзины (если она есть на странице)
-    if (document.getElementById('cart-button')) {
-        const cartButton = document.getElementById('cart-button');
-        const modalCart = document.querySelector('.modal-cart');
-        const closeCart = modalCart.querySelector('.close');
-        
-        // Открытие корзины
-        cartButton.addEventListener('click', function() {
-            modalCart.classList.add('is-open');
-        });
-        
-        // Закрытие корзины
-        closeCart.addEventListener('click', function() {
-            modalCart.classList.remove('is-open');
-        });
-        
-        // Закрытие корзины при клике вне ее
-        modalCart.addEventListener('click', function(e) {
-            if (e.target === modalCart) {
-                modalCart.classList.remove('is-open');
-            }
-        });
-    }
-    
-    // Добавляем функциональность для кнопок в корзине (если она есть на странице)
+    // Очистка корзины
     const clearCartButton = document.querySelector('.clear-cart');
     if (clearCartButton) {
         clearCartButton.addEventListener('click', function() {
-            const modalCart = document.querySelector('.modal-cart');
             modalCart.classList.remove('is-open');
+            toggleBodyScroll(false);
+            showNotification('Кошик очищено', 'cart');
         });
     }
     
-    // Функция для кнопок добавления в корзину на странице ресторана
+    // Добавление товаров в корзину
     const addToCartButtons = document.querySelectorAll('.button-add-cart');
     addToCartButtons.forEach(button => {
         button.addEventListener('click', function(e) {
@@ -296,37 +327,48 @@ document.addEventListener('DOMContentLoaded', function() {
             const productName = card.querySelector('.card-title').textContent;
             const productPrice = card.querySelector('.card-price-bold').textContent;
             
-            // В реальном приложении здесь была бы логика добавления в корзину
-            console.log(`Добавлено в корзину: ${productName} за ${productPrice}`);
-            
             // Показываем уведомление
-            showCartNotification(`"${productName}" додано до кошика!`);
+            showNotification(`"${productName}" додано до кошика!`, 'cart');
         });
     });
     
-    // Функция для показа уведомления о добавлении в корзину
-    function showCartNotification(message) {
-        const notification = document.createElement('div');
-        notification.className = 'cart-notification';
-        notification.textContent = message;
-        notification.style.cssText = `
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background-color: #1890ff;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 4px;
-            z-index: 1000;
-            font-size: 16px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            animation: fadeInOut 3s ease-in-out;
-        `;
-        
-        document.body.appendChild(notification);
-        
-        setTimeout(() => {
-            notification.remove();
-        }, 3000);
+    // ===== ЗАКРЫТИЕ ПО ESC =====
+    
+    // Закрытие модальных окон по клавише ESC
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            if (modalAuth.classList.contains('is-open')) {
+                modalAuth.classList.remove('is-open');
+                clearInputStyles();
+                toggleBodyScroll(false);
+            }
+            if (modalCart && modalCart.classList.contains('is-open')) {
+                modalCart.classList.remove('is-open');
+                toggleBodyScroll(false);
+            }
+        }
+    });
+    
+    // ===== ПРОВЕРКА В РЕАЛЬНОМ ВРЕМЕНИ =====
+    
+    // Убираем ошибку при вводе текста
+    if (loginInput) {
+        loginInput.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('error');
+                const errorMsg = this.parentNode.querySelector('.login-error');
+                if (errorMsg) errorMsg.remove();
+            }
+        });
+    }
+    
+    if (passwordInput) {
+        passwordInput.addEventListener('input', function() {
+            if (this.value.trim()) {
+                this.classList.remove('error');
+                const errorMsg = this.parentNode.querySelector('.login-error');
+                if (errorMsg) errorMsg.remove();
+            }
+        });
     }
 });
