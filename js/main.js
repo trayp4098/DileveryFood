@@ -11,9 +11,177 @@ document.addEventListener('DOMContentLoaded', function() {
     const logInForm = document.getElementById('logInForm');
     const loginInput = document.getElementById('login');
     const passwordInput = document.getElementById('password');
+    const cardsContainer = document.querySelector('.cards-restaurants');
     
     // Переменные для управления анимациями
     let shakeTimeout;
+    
+    // Функция для отображения карточек ресторанов
+    function renderRestaurantCards() {
+        if (!cardsContainer) return;
+        
+        // Очищаем контейнер (если нужно)
+        cardsContainer.innerHTML = '';
+        
+        // Для каждого ресторана создаем карточку
+        restaurantsData.forEach(restaurant => {
+            const card = createRestaurantCard(restaurant);
+            cardsContainer.appendChild(card);
+        });
+        
+        // Добавляем обработчики событий на новые карточки
+        addRestaurantCardHandlers();
+    }
+    
+    // Функция для создания карточки ресторана
+    function createRestaurantCard(restaurant) {
+        const card = document.createElement('a');
+        card.className = 'card card-restaurant';
+        card.href = restaurant.link;
+        card.dataset.id = restaurant.id;
+        
+        card.innerHTML = `
+            <img src="${restaurant.image}" alt="${restaurant.name}" class="card-image" />
+            <div class="card-text">
+                <div class="card-heading">
+                    <h3 class="card-title">${restaurant.name}</h3>
+                    <span class="card-tag tag">${restaurant.deliveryTime}</span>
+                </div>
+                <div class="card-info">
+                    <div class="rating">
+                        ${restaurant.rating}
+                    </div>
+                    <div class="price">від ${restaurant.minPrice}</div>
+                    <div class="category">${restaurant.category}</div>
+                </div>
+            </div>
+        `;
+        
+        return card;
+    }
+    
+    // Функция для добавления обработчиков на карточки
+    function addRestaurantCardHandlers() {
+        const restaurantCards = document.querySelectorAll('.card-restaurant');
+        
+        restaurantCards.forEach(card => {
+            // Удаляем старые обработчики, чтобы избежать дублирования
+            const newCard = card.cloneNode(true);
+            card.parentNode.replaceChild(newCard, card);
+            
+            // Добавляем новый обработчик
+            newCard.addEventListener('click', function(e) {
+                handleRestaurantCardClick(e, this);
+            });
+        });
+    }
+    
+    // Обработчик клика по карточке ресторана
+    // В функции handleRestaurantCardClick в main.js обновляем:
+
+// Обработчик клика по карточке ресторана
+function handleRestaurantCardClick(e, cardElement) {
+    const isLoggedIn = !!localStorage.getItem('userName');
+    const restaurantId = cardElement.dataset.id;
+    
+    // Если пользователь не авторизован
+    if (!isLoggedIn) {
+        e.preventDefault(); // Предотвращаем переход по ссылке
+        
+        // Показываем сообщение
+        showNotification('Будь ласка, авторизуйтеся для перегляду ресторану', 'cart');
+        
+        // Открываем модальное окно авторизации
+        modalAuth.classList.add('is-open');
+        
+        // Отключаем скролл страницы
+        toggleBodyScroll(true);
+        
+        // Очищаем стили ошибок и поля при каждом новом открытии
+        clearInputStyles();
+        if (loginInput) loginInput.value = '';
+        if (passwordInput) passwordInput.value = '';
+        
+        // Фокусируемся на поле логина
+        if (loginInput) loginInput.focus();
+        
+        // Сохраняем ID ресторана для последующего перехода
+        localStorage.setItem('pendingRestaurantId', restaurantId);
+    } else {
+        // Если авторизован - позволяем переход
+        // Ссылка уже настроена в карточке через restaurants-data.js
+        // restaurant.html?id=1, restaurant.html?id=2 и т.д.
+    }
+}
+
+// В функции обработки успешной авторизации обновляем:
+logInForm.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const login = loginInput.value.trim();
+    const password = passwordInput.value.trim();
+    
+    // Проверяем все поля
+    const hasError = validateForm(login, password);
+    
+    // Если есть ошибки - прерываем
+    if (hasError) {
+        showNotification('Будь ласка, заповніть всі поля', 'cart');
+        return;
+    }
+    
+    // Сохраняем данные пользователя
+    localStorage.setItem('userName', login);
+    
+    // Очищаем поля формы
+    loginInput.value = '';
+    passwordInput.value = '';
+    
+    // Закрываем модальное окно
+    modalAuth.classList.remove('is-open');
+    
+    // Включаем скролл страницы
+    toggleBodyScroll(false);
+    
+    // Обновляем интерфейс
+    updateAuthUI();
+    
+    // Показываем уведомление
+    showNotification(`Вітаємо, ${login}! Ви успішно авторизувалися.`, 'success');
+    
+    // Проверяем отложенный переход к ресторану
+    const pendingRestaurantId = localStorage.getItem('pendingRestaurantId');
+    if (pendingRestaurantId) {
+        setTimeout(() => {
+            if (confirm('Перейти до обраного ресторану?')) {
+                window.location.href = `restaurant.html?id=${pendingRestaurantId}`;
+            }
+            localStorage.removeItem('pendingRestaurantId');
+        }, 1500);
+    }
+});
+    
+    // Функция для проверки отложенного перехода после авторизации
+    function checkPendingRestaurant() {
+        const pendingRestaurant = localStorage.getItem('pendingRestaurant');
+        
+        if (pendingRestaurant) {
+            const restaurant = JSON.parse(pendingRestaurant);
+            
+            // Показываем уведомление о возможности перехода
+            showNotification(`Тепер ви можете переглянути ${restaurant.name}`, 'success');
+            
+            // Удаляем данные об отложенном переходе
+            localStorage.removeItem('pendingRestaurant');
+            
+            // Через 1.5 секунды предлагаем перейти
+            setTimeout(() => {
+                if (confirm(`Перейти до ресторану "${restaurant.name}"?`)) {
+                    window.location.href = restaurant.link;
+                }
+            }, 1500);
+        }
+    }
     
     // Функция для управления скроллом страницы
     function toggleBodyScroll(disable) {
@@ -185,8 +353,20 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // Инициализация интерфейса при загрузке
-    updateAuthUI();
+    // Инициализация при загрузке
+    function init() {
+        // Рендерим карточки
+        renderRestaurantCards();
+        
+        // Обновляем UI авторизации
+        updateAuthUI();
+        
+        // Проверяем отложенный переход после авторизации
+        checkPendingRestaurant();
+    }
+    
+    // Запуск инициализации
+    init();
     
     // ===== ОБРАБОТКА МОДАЛЬНОГО ОКНА АВТОРИЗАЦИИ =====
     
@@ -258,6 +438,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Показываем уведомление
         showNotification(`Вітаємо, ${login}! Ви успішно авторизувалися.`, 'success');
+        
+        // Проверяем отложенный переход
+        setTimeout(() => {
+            checkPendingRestaurant();
+        }, 500);
     });
     
     // ===== ОБРАБОТКА МОДАЛЬНОГО ОКНА КОРЗИНЫ =====
